@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>GitHub Language Stats</title>
+        <style>
+            .hidden {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>GitHub Language Stats</h1>
+        <p>
+            This page displays byte counts of languages you used on GitHub.
+        </p>
+        <div id="login" class="hidden">
+            <a href="https://github.com/login/oauth/authorize?client_id=CLIENT_ID">Log in with GitHub</a>
+        </div>
+        <div id="loading">
+            I'm doing stuff wait a second okay?
+        </div>
+        <div id="content" class="hidden">
+            <table id="result">
+                <tr>
+                    <td>Language</td>
+                    <td>Total code written in bytes</td>
+                </tr>
+            </table>
+        </div>
+        <script type="module">
+            import { Octokit } from "https://cdn.skypack.dev/octokit";
+            import Cookies from "https://cdn.jsdelivr.net/npm/js-cookie@3.0.1/dist/js.cookie.min.mjs";
+            
+            let token = Cookies.get('token');
+
+            if(token == undefined){
+                document.getElementById('login').classList.remove('hidden');
+                document.getElementById('loading').classList.add('hidden');
+            } else {
+                const octokit = new Octokit({
+                    auth: token,
+                });
+                octokit.rest.repos.listForAuthenticatedUser()
+                    .then(response => {
+                        console.log(response);
+                        return Promise.all(
+                            response.data.map(repo => {
+                                return octokit.rest.repos.listLanguages({
+                                    owner: repo.owner.login,
+                                    repo: repo.name
+                                })
+                            })
+                        );
+                    })
+                    .then(repos => {
+                        let stats = {}
+                        console.log(repos);
+                        repos.forEach(resp => {
+                            for (let lang in resp.data) {
+                                // Using Object.prototype in case they are writing in a language called hasOwnProperty
+                                if (Object.prototype.hasOwnProperty.call(resp.data, lang)) {
+                                    if (Object.prototype.hasOwnProperty.call(stats, lang)) {
+                                        stats[lang] += resp.data[lang];
+                                    } else {
+                                        stats[lang] = resp.data[lang];
+                                    }
+                                }
+                            }
+                        });
+                        console.log(stats);
+                        for (let lang in stats) {
+                            // Using Object.prototype in case they are writing in a language called hasOwnProperty
+                            if (Object.prototype.hasOwnProperty.call(stats, lang)) {
+                                let elem = document.createElement("tr");
+                                elem.appendChild(document.createElement("td"));
+                                elem.appendChild(document.createElement("td"));
+                                elem.children[0].innerText = lang;
+                                elem.children[1].innerText = stats[lang];
+                                document.getElementById("result").appendChild(elem);
+                            }
+                        }
+                        document.getElementById('content').classList.remove('hidden');
+                        document.getElementById('loading').classList.add('hidden');
+                    });
+            }
+        </script>
+    </body>
+</html>
